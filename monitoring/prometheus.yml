@@ -1,0 +1,93 @@
+global:
+  scrape_interval: 15s 
+
+scrape_configs:
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+
+  - job_name: 'booking-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['booking-service:8083']
+
+  - job_name: 'report-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['report-service:8086']
+
+  - job_name: 'session-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['session-service:8081']
+  
+  - job_name: 'gateway-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['gateway-service:8087']
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['192.168.56.10:9100']
+      - targets: ['192.168.56.11:9100']
+      - targets: ['192.168.56.12:9100']
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: 192\.168\.56\.10:9100
+        target_label: instance
+        replacement: manager01
+      - source_labels: [__address__]
+        regex: 192\.168\.56\.11:9100
+        target_label: instance
+        replacement: worker01
+      - source_labels: [__address__]
+        regex: 192\.168\.56\.12:9100
+        target_label: instance
+        replacement: worker02
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://booking-service:8083/actuator/health
+          - http://session-service:8081/actuator/health
+          - http://report-service:8086/actuator/health
+          - http://gateway-service:8087/actuator/health
+          
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115 
+  
+  - job_name: 'blackbox-https'
+    metrics_path: /probe
+    params:
+      module: [https_2xx]
+    static_configs:
+      - targets:
+          - https://google.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']

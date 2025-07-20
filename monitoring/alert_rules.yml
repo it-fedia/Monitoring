@@ -1,0 +1,33 @@
+groups:
+  - name: system-alerts
+    rules:
+
+    - alert: LowAvailableMemory
+      expr: node_memory_MemAvailable_bytes / 1024 / 1024 < 100
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Свободная память меньше 100MB"
+        description: "На узле {{ $labels.instance }} доступно менее 100MB оперативной памяти."
+
+    - alert: HighMemoryUsage
+      expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / 1024 / 1024 / 1024 > 1
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Использование RAM больше 1GB"
+        description: "На узле {{ $labels.instance }} используется более 1GB памяти."
+
+    - alert: HighCPUUsage
+      expr: |
+        sum by (instance) (
+          rate(container_cpu_usage_seconds_total{image!=""}[1m])
+        ) * 100 > 10
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "CPU по сервису выше 10%"
+        description: "У сервиса {{ $labels.instance }} общее использование CPU превышает 10%."

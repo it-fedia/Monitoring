@@ -1,0 +1,29 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'gorodianskyfedor@gmail.com'
+  smtp_auth_username: 'gorodianskyfedor@gmail.com'
+  smtp_auth_password: 'jrob epci ypsq jtih'
+  smtp_require_tls: true
+
+route:
+  receiver: 'email-and-tg'
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 15m
+
+receivers:
+  - name: 'email-and-tg'
+    email_configs:
+      - to: 'gorodianskyfedor@gmail.com'
+    telegram_configs:
+      - bot_token: '7911272789:AAFVaIDBAMlMln2YmYWejzlVFUSqQuXy9YU'
+        chat_id: 1023648228
+        parse_mode: 'Markdown'
+        message: |
+          *Alert: {{ .CommonLabels.alertname }}*
+          {{ range .Alerts }}
+          *Description:* {{ .Annotations.description }}
+          *Instance:* {{ .Labels.instance }}
+          *Severity:* {{ .Labels.severity }}
+          *Status:* {{ .Status }}
+          {{ end }}

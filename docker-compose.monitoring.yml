@@ -1,0 +1,124 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml
+    networks:
+      - overlay
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+  loki:
+    image: grafana/loki:2.9.3
+    command: -config.file=/etc/loki/loki-config.yaml
+    volumes:
+      - ./monitoring/loki-config.yaml:/etc/loki/loki-config.yaml
+      - ./loki-data/index:/loki/index
+      - ./loki-data/chunks:/loki/chunks
+    networks:
+      - overlay
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      mode: replicated
+      replicas: 1
+      endpoint_mode: dnsrr
+    ports:
+      - target: 3100
+        published: 3100
+        protocol: tcp
+        mode: host
+
+  promtail:
+    image: grafana/promtail:2.9.3
+    volumes:
+      - /var/log:/var/log              
+      - /etc/machine-id:/etc/machine-id
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./monitoring/promtail-config.yaml:/etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/config.yaml
+    networks:
+      - overlay
+    deploy:
+      mode: global
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+    networks:
+      - host
+    deploy:
+      mode: global 
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - overlay
+    deploy:
+      mode: global 
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./monitoring/blackbox.yml:/etc/blackbox_exporter/config.yml
+    command: --config.file=/etc/blackbox_exporter/config.yml
+    networks:
+      - overlay
+    deploy:
+      mode: global 
+  
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - /vagrant/grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - overlay
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+  
+  alertmanager:
+    image: prom/alertmanager:latest
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    command: --config.file=/etc/alertmanager/alertmanager.yml
+    networks:
+      - overlay
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+
+networks:
+  overlay:
+    external: true
+  host:
+    external: true
+    name: host
